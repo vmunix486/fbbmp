@@ -46,7 +46,7 @@ typedef struct {
 	u16 biPlanes;
 	u16 biBitCount;
 	u32 biCompression;
-	u43 biSizeImage;
+	u32 biSizeImage;
 	long biXPelsPerMeter;
 	long biYPelsPerMeter;
 	u32 biClrUsed;
@@ -58,7 +58,7 @@ typedef struct {
 	u8 g;
 	u8 r;
 	u8 reserved;
-} RBGQUAD;
+} RGBQUAD;
 
 #pragma pack()
 
