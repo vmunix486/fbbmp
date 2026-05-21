@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
 	long screensize;
 
 	if (argc < 2) {
-		printf("usage: %s image.bmp\n", argv[0]);
+		printf("usage: %s [image.bmp]\n", argv[0]);
 		return 1;
 	}
 
