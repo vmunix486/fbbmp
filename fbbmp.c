@@ -19,8 +19,10 @@
 #include <sys/io.h>
 
 #include <linux/fb.h>
+#include <linux/kd.h>
 
 #define FB_DEVICE "/dev/fb0"
+#define TTY_DEVICE "/dev/tty0"
 
 /*--------------------*/
 /* BMP structures     */
@@ -66,6 +68,8 @@ typedef struct {
 /*--------------------*/
 
 static int fbfd;
+static int ttyfd;
+
 static struct fb_fix_screeninfo finfo;
 static struct fb_var_screeninfo vinfo;
 
@@ -86,6 +90,33 @@ static void set_plane(int plane)
 
 	outb(0x02, SEQ_INDEX);
 	outb(1 << plane, SEQ_DATA);
+}
+
+/*--------------------*/
+
+static void write_planar_byte(
+	int xbyte,
+	int y,
+	u8 plane0,
+	u8 plane1,
+	u8 plane2,
+	u8 plane3,)
+{
+	long offset;
+
+	offset = (y * finfo.line_length) + xbyte;
+
+	set_plane(0);
+	fbmem[offset] = plane0;
+
+	set_plane(1);
+	fbmem[offset] = plane1;
+
+	set_plane(2);
+	fbmem[offset] = plane2;
+
+	set_plane(3);
+	fbmem[offset] = plane3;
 }
 
 /*--------------------*/
@@ -185,23 +216,68 @@ static int load_bmp(const char *filename)
 
 	fseek(fp, bfh.bfOffBits, SEEK_SET);
 
-	for (y = bih.biHeight - 1; y >= 0; y--) {
+	for (y = 0; y < bih.biHeight; y++) {
+
+		int dsty;
+
+		dsty = bih.biHeight - 1 - y;
 
 		fread(rowbuf, 1, rowbytes, fp);
 
-		for (x = 0; x < bih.biWidth; x++) {
+		for (x = 0; x < bih.biWidth; x += 8) {
 
-			int color;
-			u8 byte;
+			int i;
 
-			byte = rowbuf[x / 2];
+			u8 p0;
+			u8 p1;
+			u8 p2;
+			u8 p3;
 
-			if (x & 1)
-				color = byte & 0x0F;
-			else
-				color = (byte >> 4) & 0x0F;
+			p0 = 0;
+			p1 = 0;
+			p2 = 0;
+			p3 = 0;
 
-			putpixel(x, y, color);
+			for (i = 0; i < 8; i++) {
+
+				int px;
+				int color;
+
+				u8 byte;
+
+				px = x + i;
+
+				if (px >= bih.biWidth)
+					break;
+
+				byte = rowbuf[px / 2];
+
+				if (px & 1)
+					color = byte & 0x0F;
+				else
+					color = (byte >> 4) & 0x0F;
+
+				if (color & 1)
+					p0 |= (1 << (7 - i));
+
+				if (color & 2)
+					p1 |= (1 << (7 - i));
+
+				if (color & 4)
+					p2 |= (1 << (7 - i));
+
+				if (color & 8)
+					p3 |= (1 << (7 - i));
+			}
+
+			write_planar_byte(
+				x >> 3,
+				dsty,
+				p0,
+				p1,
+				p2,
+				p3,
+			);
 		}
 	}
 
@@ -260,12 +336,22 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	ttyfd = open(TTY_DEVICE, O_RDWR);
+
+	if (ttyfd >= 0)
+		ioctl(ttyfd, KDSETMODE, KD_GRAPHICS);
+
 	memset(fbmem, 0, screensize);
 
 	load_bmp(argv[1]);
 
 	printf("Press ENTER to exit...\n");
 	getchar();
+
+	if (ttyfd >= 0) {
+		ioctl(ttyfd, KDSETMODE, KD_TEXT);
+		close(ttyfd);
+	}
 
 	munmap(fbmem, screensize);
 
