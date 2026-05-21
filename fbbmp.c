@@ -79,6 +79,11 @@ static u8 *fbmem;
 
 static void set_plane(int plane)
 {
+	if (ioperm(0x3C4, 2, 1)) {
+		perror("ioperm");
+		return 1;
+	}	
+
 	outb(0x02, SEQ_INDEX);
 	outb(1 << plane, SEQ_DATA);
 }
@@ -215,6 +220,11 @@ int main(int argc, char *argv[])
 
 	if (argc < 2) {
 		printf("usage: %s [image.bmp]\n", argv[0]);
+		return 1;
+	}
+
+	if (ioperm(0x3C4, 2, 1)) {
+		perror("ioperm");
 		return 1;
 	}
 
