@@ -100,7 +100,7 @@ static void write_planar_byte(
 	u8 plane0,
 	u8 plane1,
 	u8 plane2,
-	u8 plane3,)
+	u8 plane3)
 {
 	long offset;
 
@@ -276,8 +276,7 @@ static int load_bmp(const char *filename)
 				p0,
 				p1,
 				p2,
-				p3,
-			);
+				p3);
 		}
 	}
 
